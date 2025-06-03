@@ -1,85 +1,52 @@
 import cv2
 import numpy as np
 
-# Fungsi untuk menggabungkan banyak mask
-def combine_masks(hsv, color_dict):
-    combined_result = np.zeros_like(hsv)
-    all_masks = None
+# Rentang HSV untuk warna kuning (kulit pisang)
+yellow_range = [
+    (np.array([20, 100, 100]), np.array([30, 255, 255]))
+]
 
-    for color_name, ranges in color_dict.items():
-        mask = None
-        for lower, upper in ranges:
-            current_mask = cv2.inRange(hsv, lower, upper)
-            if mask is None:
-                mask = current_mask
-            else:
-                mask = cv2.bitwise_or(mask, current_mask)
-        
-        color_output = cv2.bitwise_and(frame, frame, mask=mask)
-        combined_result = cv2.bitwise_or(combined_result, color_output)
+# Baca gambar dari file
+image_path = "pisang2.jpg"  # Ganti path dengan gambar Anda
+frame = cv2.imread(image_path)
+if frame is None:
+    print("Gambar tidak ditemukan.")
+    exit()
 
-        if all_masks is None:
-            all_masks = mask
-        else:
-            all_masks = cv2.bitwise_or(all_masks, mask)
+# Konversi ke HSV
+hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    return combined_result, all_masks
+# Buat mask untuk warna kuning
+mask = None
+for lower, upper in yellow_range:
+    current_mask = cv2.inRange(hsv, lower, upper)
+    if mask is None:
+        mask = current_mask
+    else:
+        mask = cv2.bitwise_or(mask, current_mask)
 
-# Rentang HSV untuk berbagai warna
-color_ranges = {
-    "Merah": [
-        (np.array([0, 120, 70]), np.array([10, 255, 255])),
-        (np.array([170, 120, 70]), np.array([180, 255, 255]))
-    ],
-    "Hijau": [
-        (np.array([35, 50, 50]), np.array([85, 255, 255]))
-    ],
-    "Biru": [
-        (np.array([90, 100, 100]), np.array([130, 255, 255]))
-    ],
-    "Kuning": [
-        (np.array([20, 100, 100]), np.array([30, 255, 255]))
-    ],
-    "Oranye": [
-        (np.array([10, 100, 20]), np.array([20, 255, 255]))
-    ],
-    "Ungu": [
-        (np.array([130, 50, 50]), np.array([160, 255, 255]))
-    ],
-    "Cokelat": [
-        (np.array([10, 100, 20]), np.array([20, 200, 150]))
-    ],
-    "Pink": [
-        (np.array([145, 100, 100]), np.array([170, 255, 255]))
-    ],
-    "Putih": [
-        (np.array([0, 0, 200]), np.array([180, 30, 255]))
-    ],
-    "Hitam": [
-        (np.array([0, 0, 0]), np.array([180, 255, 50]))
-    ]
-}
+# Hitung jumlah piksel kuning
+yellow_pixels = cv2.countNonZero(mask)
 
-# Mulai kamera
-cam = cv2.VideoCapture(0)
+# Threshold untuk menentukan apakah ada pisang
+banana_detected = yellow_pixels > 500  # Ubah threshold sesuai kebutuhan
 
-while True:
-    ret, frame = cam.read()
-    if not ret:
-        break
+# Tampilkan hasil
+result = cv2.bitwise_and(frame, frame, mask=mask)
 
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+# Tampilkan info pada gambar
+display_frame = frame.copy()
+message = "Banana Detected!" if banana_detected else "No Banana Detected"
+color = (0, 255, 0) if banana_detected else (0, 0, 255)
+cv2.putText(display_frame, message, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
 
-    result, all_masks = combine_masks(hsv, color_ranges)
+# Resize untuk tampilan
+def resize_for_display(img, scale=0.5):
+    return cv2.resize(img, (0, 0), fx=scale, fy=scale)
 
-    # Tampilkan hasil
-    cv2.imshow("Asli", frame)
-    cv2.imshow("Mask Semua Warna", all_masks)
-    cv2.imshow("Hasil Deteksi Warna", result)
-
-    key = cv2.waitKey(1)
-    if key == 27:  # ESC
-        break
-
-cam.release()
+# Tampilkan jendela
+cv2.imshow("Gambar Asli + Info", resize_for_display(display_frame))
+cv2.imshow("Mask Kuning", resize_for_display(mask))
+cv2.imshow("Deteksi Kuning", resize_for_display(result))
+cv2.waitKey(0)
 cv2.destroyAllWindows()
